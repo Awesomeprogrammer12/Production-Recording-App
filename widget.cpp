@@ -1,13 +1,12 @@
 #include "widget.h"
 #include "statisticspage.h"
 #include <QHeaderView> // Needed for stretching the table
-
+//Make Sure you are mentally proficeint this file can make you lose your brain
 Widget::Widget(QWidget *parent)
     : QWidget(parent)
 {
     this->setObjectName("this"); //i set this to this not this to that isnt that genius
     setMouseTracking(true);
-    showFullScreen();
     // --- FIX 1: Resource Path Correction (iimages) ---
     setWindowIcon(QIcon(":/images/Zions.png"));
     //setWindowTitle(Zion:production records app
@@ -15,7 +14,7 @@ Widget::Widget(QWidget *parent)
     setWindowFlags(
         Qt::Window | Qt::FramelessWindowHint | Qt::WindowMinimizeButtonHint | Qt::WindowMaximizeButtonHint);
     ctrlTabShortcut = new QShortcut(QKeySequence::NextChild, this);
-    ctrlShiftTabShortcut = new QShortcut(QKeySequence::PreviousChild, this);
+    ctrlShiftTabShortcut = new QShortcut(QKeySequence("Ctrl+Shift+Tab"), this);
 
     undoShortcut = new QShortcut(QKeySequence("Ctrl+Z"),this);
     redoShortcut = new QShortcut(QKeySequence("Ctrl+Y"),this);
@@ -194,11 +193,8 @@ Widget::Widget(QWidget *parent)
     recordsTabel->setColumnHidden(4, true);//hide only timestamps column
     recordsTabel->setHorizontalHeaderLabels(header);
 
-    // --- FIX 4: Table Stretching ---
-    // This forces the headers to fill the width
     recordsTabel->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
-    // Make the description column slightly larger if needed (optional)
-    // recordsTabel->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Stretch);
+    recordsTabel->horizontalHeader()->setSectionResizeMode(5,QHeaderView::Fixed);
 
     recordsTabel->setFont(QFont("consolas", 11, 4, true));
     recordsTabel->setAutoFillBackground(true);
@@ -317,7 +313,7 @@ Widget::Widget(QWidget *parent)
     switchThemes(Theme);
     userfontSize = 10;
     // In your constructor or after setup
-    QTimer::singleShot(0, this, SLOT(showFullScreen()));
+    QTimer::singleShot(1000, this, SLOT(showFullScreen()));
 
 }
 
@@ -473,8 +469,10 @@ void Widget::addButton()
     Date = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
 
 
-    if (Name.isEmpty() || Number.isEmpty() || Category.isEmpty()) return;
-
+    if (Name.isEmpty() || Number.isEmpty() || Category.isEmpty()){
+        QMessageBox::warning(this, "Warning", "Fill Empty Field(s)");
+        return;
+    }
     if (Name.length() > 20 || Category.length() > 20) {
         name->setPlaceholderText("Too long (>20 chars)");
         info->setText("Name Too long (>20 chars)");
@@ -489,6 +487,7 @@ void Widget::addButton()
     }
 
     if (names.contains(Name)) {
+        QMessageBox::warning(this, "Warning", "Name Already Exists.");
         name->setPlaceholderText("Name already exists");
         info->setText("Name already exists");
         return;
@@ -509,15 +508,10 @@ void Widget::addButton()
         status->setText(QString("Added: %1 (%2)").arg(Name, Category));
         parser();
     }
-    name->setPlaceholderText("");
-    number->setPlaceholderText("");
-    categories->setPlaceholderText("");
-    description->setPlaceholderText("");
-
-    name->setText("");
-    number->setText("");
-    categories->setText("");
-    description->setText("");
+    for (auto edts: {name,number,categories,description}){
+        edts->setText("");
+        edts->setPlaceholderText("");
+    }
     saveCurrentState();
 }
 
@@ -566,6 +560,8 @@ void Widget::parser()
             deleteBtn->setCursor(Qt::PointingHandCursor);
             editButtn->setObjectName("tabelbtn");
             deleteBtn->setObjectName("tabelbtn");
+            deleteBtn->setProperty("row",currentRow);
+            editButtn->setProperty("row",currentRow);
             QString stylesheetsd = R"(QPushButton#tabelbtn{font-size:10px;font-weight:bold;color:green;})";
             QString editButtnsheet= "background-color:yellow;";
             QString delSheet = "background-color:red;";
@@ -602,7 +598,7 @@ void Widget::parser()
             }else if(line.startsWith("T:")){
                 QString timeVal = line.mid(2).trimmed(); // Get everything after T:
                 timeVal.remove('"'); // Clean up the quotes
-                recordsTabel->setItem(currentRow-1, 4,new QTableWidgetItem(timeVal));
+                recordsTabel->setItem(currentRow, 4,new QTableWidgetItem(timeVal));
                 recent[0].Date = timeVal;
             }
         }
@@ -769,24 +765,31 @@ void Widget::format()
 }
 
 void Widget::deleteRow() {
+    QMessageBox::StandardButton reply;
+    reply = QMessageBox::warning(this, "Delete Item",
+                                 "Are you sure you want to delete this item?",
+                                 QMessageBox::Yes | QMessageBox::No);
+
+    if (reply == QMessageBox::Yes) {
+        // Perform deletion
+        qDebug() << "Item deleted";
+    } else {
+        // Cancel deletion
+        qDebug() << "Delete cancelled";
+        return;
+    }
     saveCurrentState();
+    for(auto searches: {searchName,searchNumber,searchCategory,searchDescription}){
+        searches->setText("");
+    }
+
     // 1. Get the button's parent (the QWidget container)
     QPushButton *btn = qobject_cast<QPushButton *>(sender());
-    QWidget *container = qobject_cast<QWidget *>(btn->parent());
     if (!btn) return;
-    if (!container) return;
 
     // 2. Find the row index using the CONTAINER, not the button
 
-    int rowToRemove = -1;
-
-    for (int i = 0; i < recordsTabel->rowCount(); i++) {
-        if (recordsTabel->cellWidget(i, 5) == container) {
-            // Column 5 is Action
-            rowToRemove = i;
-            break;
-        }
-    }
+    int rowToRemove = btn->property("row").toInt();
     if (rowToRemove != -1) {
         recordsTabel->removeRow(rowToRemove);
         tableEdited(nullptr); // Save changes to file
@@ -797,31 +800,21 @@ void Widget::deleteRow() {
 
 void Widget::showEditDialog()
 {
+    for(auto searches: {searchName,searchNumber,searchCategory,searchDescription}){
+        searches->setText("");
+    }
     qInfo()<<"Edit dialog starting";
     recordsTabel->blockSignals(true);
     saveCurrentState();
     QPushButton *btn = qobject_cast<QPushButton*>(sender());
     if (!btn) {
-        qInfo()<<"button not found";
+        qInfo()<<"edit button not found";
         return;
     }
 
-    // 1. Find the row index
-    QWidget *container = qobject_cast<QWidget*>(btn->parent());
-    if (!container) {
-        qInfo()<<"parent not found";
-        return;
-    }
-    rowIndex = -1;
-    for (int e = 0; e < recordsTabel->rowCount(); e++) {
-        if (recordsTabel->cellWidget(e, 5) == container) {
-            rowIndex = e;
-            qInfo()<<"row index found "<<rowIndex;
-            break;
-        }
-    }
+
+    rowIndex = btn->property("row").toInt();
     qInfo()<<"row index found next make the window";
-    if (rowIndex == -1) return;
 
     if (rowIndex < 0) {
         QMessageBox::warning(this, "Selection", "Please select a row to edit.");
@@ -880,15 +873,21 @@ void Widget::showEditDialog()
         qInfo()<<"blocked signals";
         if(eName->text().isEmpty()|| eNumb->text().isEmpty() || eCateg->text().isEmpty() || eDescr->text().isEmpty()){
             qInfo()<<"Empty";
-            QMessageBox::warning(this, "Error", "Empty");
+            QMessageBox::warning(this, "Error", "Fill Empty text Field(s)");
             return;
+        }
+        for(int i = 0; i<names.length();++i){
+            if(eName->text() == names[i]){
+                QMessageBox::warning(this, "Error", "Name Already Exists");
+                return;
+            }
         }
         recordsTabel->item(rowIndex, 0)->setText(eName->text());
         recordsTabel->item(rowIndex, 1)->setText(eNumb->text());
         recordsTabel->item(rowIndex, 2)->setText(eCateg->text());
         recordsTabel->item(rowIndex, 3)->setText(eDescr->text());
-        recordsTabel->blockSignals(false);
         saveTable();
+        recordsTabel->blockSignals(false);
         // Close dialog
         editDialog->close();
     });
@@ -1014,7 +1013,8 @@ void Widget::showSettingDialog(){
 
     QWidget *functionTweeksWidget = new QWidget();
     QVBoxLayout *functionTweeks = new QVBoxLayout(functionTweeksWidget);
-    QPushButton *addPassWord = new QPushButton("+Add Password");
+    QPushButton *addPassWord = new QPushButton("+Add Password",functionTweeksWidget);
+    QLabel *comments = new QLabel("Made By Awesome Effiong\n with the help of the qt6 group\n icons are from flaticon.com \n the hamburgerMenu from stats page is made by \nSee Icons",functionTweeksWidget);
 
 
     // FIX 2: Add tabsStack with stretch factor 1 to fill ALL available space
@@ -1039,6 +1039,7 @@ void Widget::showSettingDialog(){
 
     scrollFunction->setWidget(functionTweeksWidget);
     functionTweeks->addWidget(addPassWord);
+    functionTweeks->addWidget(comments);
     functionTweeks->addStretch();
 
     // --- Logic & Styling ---
@@ -1155,28 +1156,34 @@ void Widget::saveTable()
         return ;
     }
     //start writing to file
+    QString rwTime;
+    QString rwDesc;
+    QString rwCate;
+    QString rwNumb;
+    QString rwName;
     QTextStream out(&file);
     for (int row = 0; row < recordsTabel->rowCount(); row++) {
         // Skip hidden rows (filtered out) if you want?
         // Usually you want to save everything, but let's save what is in the table.
         // We need to check if items exist to avoid crashes
-        if(recordsTabel->item(row, 0) == nullptr) continue;
-
+        auto safeText = [&](int col){
+            QTableWidgetItem *it = recordsTabel->item(row, col);
+            return it ? it->text().replace("\"","'"):QString();
+        };
         //create a file with -new N: I: D:  C: T: logic
-        QString tname = recordsTabel->item(row, 0)->text() ;
-        QString tnumb = recordsTabel->item(row, 1)->text() ;
-        QString tcateg = recordsTabel->item(row, 2)->text() ;
-        QString tdesc =   recordsTabel->item(row, 3)->text() ;
-        QString timeStamp= recordsTabel->item(row,4)->text();
 
-        tname.replace("\"","'");tnumb.replace("\"","'");tcateg.replace("\"","'");tdesc.replace("\"","'");
+        rwName = safeText(0);
+        rwNumb = safeText(1);
+        rwCate = safeText(2);
+        rwDesc = safeText(3);
+        rwTime = safeText(4);
 
         out << "-new\n";
-        out << "N:\"" << tname<< "\"\n";
-        out << "I:\"" << tnumb<< "\"\n";
-        out << "C:\"" << tcateg<< "\"\n";
-        out << "D:\"" <<tdesc<< "\"\n";
-        out << "T:\"" <<timeStamp<< "\"\n";
+        out << "N:\"" << rwName<< "\"\n";
+        out << "I:\"" << rwNumb<< "\"\n";
+        out << "C:\"" << rwCate<< "\"\n";
+        out << "D:\"" <<rwDesc<< "\"\n";
+        out << "T:\"" <<rwTime<< "\"\n";
     }
 
     file.close();
