@@ -1,24 +1,32 @@
 #include "widget.h"
-#include "statisticspage.h"
 #include <QHeaderView> // Needed for stretching the table
-//Make Sure you are mentally proficeint this file can make you lose your brain
+#include <dwmapi.h>
+#pragma comment(lib, "dwmapi.lib")
+
+
 Widget::Widget(QWidget *parent)
     : QWidget(parent)
 {
     this->setObjectName("this"); //i set this to this not this to that isnt that genius
+
     setMouseTracking(true);
     // --- FIX 1: Resource Path Correction (iimages) ---
     setWindowIcon(QIcon(":/images/Zions.png"));
     //setWindowTitle(Zion:production records app
     setAutoFillBackground(true);
-    setWindowFlags(
-        Qt::Window | Qt::FramelessWindowHint | Qt::WindowMinimizeButtonHint | Qt::WindowMaximizeButtonHint);
+    setWindowFlags(Qt::FramelessWindowHint|Qt::Window  | Qt::WindowMinimizeButtonHint | Qt::WindowMaximizeButtonHint|Qt::WindowTitleHint);
+    this->setFocusPolicy(Qt::StrongFocus);
     ctrlTabShortcut = new QShortcut(QKeySequence::NextChild, this);
     ctrlShiftTabShortcut = new QShortcut(QKeySequence("Ctrl+Shift+Tab"), this);
 
     undoShortcut = new QShortcut(QKeySequence("Ctrl+Z"),this);
     redoShortcut = new QShortcut(QKeySequence("Ctrl+Y"),this);
+    enterShortcut = new QShortcut(QKeySequence("Return"),this);
+    windowShortcut1 = new QShortcut(QKeySequence("Alt+Left"), this);
+    windowShortcut1->setContext(Qt::ApplicationShortcut);
 
+    windowShortcut2 = new QShortcut(QKeySequence("Alt+Right"), this);
+    windowShortcut2->setContext(Qt::ApplicationShortcut);
     Theme = "dark";
 
     // Variables
@@ -33,95 +41,14 @@ Widget::Widget(QWidget *parent)
 
     setWindowFilePath(fullPath);
 
-    // --- FIX 3: Layout Parent Issue ---
     master = new QVBoxLayout();
 
-    // NavigationPanel hbox
+    navigationPanelSetup();
 
-    NavPanel = new QFrame(this);
-    NavPanel->setObjectName("NavigationalWidget");
-    NavigationPanel = new QGridLayout(NavPanel);
-    tabs = new QHBoxLayout();
-    home = new QPushButton();
-    store = new QPushButton();
-    STATS = new QPushButton();
-    ZION = new QLabel();
-    ZION->setObjectName("Zion");
+    mainUISetup();
 
-    butns = new QHBoxLayout();
-    minimize = new QPushButton();
-    maximize = new QPushButton();
-    exit = new QPushButton();
-
-    // --- FIX 1: Corrected Paths again ---
-    ZION->setPixmap(QPixmap(":/images/Zions.png"));
-    home->setIcon(QIcon(":/images/home.png"));
-    store->setIcon(QIcon(":/images/store.png"));
-    STATS->setIcon(QIcon(":/images/stats.png"));
-
-    store->setText("Store");
-    STATS->setText("Stats");
-    ZION->setText("Zion");
-    home->setText("Home");
-    minimize->setText("-");
-    maximize->setText("[]");
-    exit->setText("X");
-
-    store->setIconSize(QSize(32, 32));
-    home->setIconSize(QSize(27, 27));
-
-    NavPanel->setMaximumHeight(50);
-
-    // Styling
-    home->setObjectName("tabButtons");
-    STATS->setStyleSheet("tabButtons");
-    store->setStyleSheet("tabButtons");
-
-    minimize->setStyleSheet("width:20;height:20");
-    maximize->setStyleSheet("width:20;height:20; ");
-    exit->setStyleSheet("width:20;height:20;");
-
-    NavigationPanel->setAlignment(Qt::AlignTop);
-
-    // Main UI Stack
-    mainui = new QStackedWidget(this);
-    mainui->setObjectName("tabstack");
-    // Page 1: Home
-    QWidget* homepage = new QWidget();
-    Main = new QVBoxLayout(homepage);
-    welcome = new QLabel();
-    status = new QLabel();
-    add = new QPushButton();
-
-    welcome->setText("Welcome to Zion records....");
-    welcome->setObjectName("welcome");
-    status->setText("You have not added any products yet. . ....");
-    add->setText("Add");
-    add->setStyleSheet(
-        "font-family:consolas;font-weight:45px; padding:25%;border:white;border-width:5px;border-radius:25%;");
-    add->setIcon(QIcon(":/images/add.png")); // Path fix
-    add->setIconSize(QSize(32, 32));
-    // Page 2: Store
-    QWidget* storepage = new QWidget(this);
-    storeMenu = new QHBoxLayout(storepage);
-    storesSidebar = new QVBoxLayout(storepage); // Removed 'this' to prevent layout warnings
-    refresh = new QPushButton(this);
-    prompt = new QLabel(this);
-    namePrompt = new QLabel(this);
-    namePrompt->setObjectName("prompt");
-    name = new QLineEdit(this);
-    numberPrompt = new QLabel(this);
-    numberPrompt->setObjectName("prompt");
-    number = new QLineEdit(this);
-    categoriesPrompt = new QLabel(this);
-    categoriesPrompt->setObjectName("prompt");
-    categories = new QLineEdit(this);
-    descriptionPrompt = new QLabel(this);
-    descriptionPrompt->setObjectName("prompt");
-    description = new QLineEdit();
-    name->setMinimumWidth(200);
-    Append = new QPushButton();
     StatisticsPage *statsPage = new StatisticsPage(this);
+
     // 1. Setup the Layout Container
     QWidget* recordsTabelWidget = new QWidget();
     QGridLayout* recordsTabelLayout = new QGridLayout(recordsTabelWidget);
@@ -131,22 +58,13 @@ Widget::Widget(QWidget *parent)
     searchCategory = new QLineEdit(this);
     searchDescription = new QLineEdit(this);
     clr = new QPushButton(this);
+
     recordsTabel = new QTableWidget(this);
-
     recordsTabelLayout->setAlignment(Qt::AlignTop);
-
-    // [CRITICAL FIX] Remove the invisible 11px padding around the table
     recordsTabelLayout->setContentsMargins(0, 0, 0, 0);
     recordsTabelLayout->setSpacing(0); // Optional: removes space between search and table
-
-    // ... (Your searchEntrys code stays here) ...
-
     recordsTabelLayout->addLayout(searchEntrys, 0, 0, 1, 2);
-
-    // [CRITICAL FIX] Add the table, but also set the STRETCH factor
     recordsTabelLayout->addWidget(recordsTabel, 1, 0, 6, 6);
-
-    // This tells the layout: "Row 1 (where the table is) gets 100% of extra vertical space"
     recordsTabelLayout->setRowStretch(1, 1);
     searchEntrys->setAlignment(Qt::AlignLeft | Qt::AlignTop);
 
@@ -168,7 +86,7 @@ Widget::Widget(QWidget *parent)
 
     home->setFocusPolicy(Qt::NoFocus);
     store->setFocusPolicy(Qt::NoFocus);
-    STATS->setFocusPolicy(Qt::NoFocus);
+    stats->setFocusPolicy(Qt::NoFocus);
 
     prompt->setText("Fill the following information");
     prompt->setStyleSheet("font-family:Comic Sans MS;font-size:18px");
@@ -224,7 +142,7 @@ Widget::Widget(QWidget *parent)
 
     tabs->addWidget(home, 0, Qt::AlignBottom);
     tabs->addWidget(store, 0, Qt::AlignBottom);
-    tabs->addWidget(STATS, 0, Qt::AlignBottom);
+    tabs->addWidget(stats, 0, Qt::AlignBottom);
 
     searchEntrys->addWidget(searchName, 0, 0, 1, 1, Qt::AlignRight | Qt::AlignTop);
     searchEntrys->addWidget(searchNumber, 0, 1, 1, 1, Qt::AlignRight | Qt::AlignTop);
@@ -259,7 +177,7 @@ Widget::Widget(QWidget *parent)
     recordsTabelLayout->addWidget(recordsTabel, 1, 0, 6, 6);
 
     NavigationPanel->addLayout(tabs, 0, 0, 1, 2, Qt::AlignLeft | Qt::AlignBottom);
-    NavigationPanel->addWidget(ZION, 0, 4, 1, 2, Qt::AlignCenter | Qt::AlignVCenter);
+    NavigationPanel->addWidget(zion, 0, 4, 1, 2, Qt::AlignCenter | Qt::AlignVCenter);
     NavigationPanel->addLayout(butns, 0, 6, 0, 2, Qt::AlignRight | Qt::AlignTop);
 
     bottombar->addWidget(settings, 1, Qt::AlignLeft);
@@ -274,29 +192,7 @@ Widget::Widget(QWidget *parent)
     master->addWidget(bottombarWidget, 0);
 
     // Connections
-    connect(exit, &QPushButton::clicked, this, &Widget::exitWindow);
-    connect(maximize,SIGNAL(clicked()), this,SLOT(resizeWindow()));
-    connect(minimize,SIGNAL(clicked()), this,SLOT(minimizeWindow()));
-    connect(home,SIGNAL(clicked()), this, SLOT(homeTab()));
-    connect(store,SIGNAL(clicked(bool)), this,SLOT(storeTab()));
-    connect(add,SIGNAL(clicked(bool)), this,SLOT(storeTab()));
-    connect(STATS,SIGNAL(clicked(bool)), this,SLOT(statsTab()));
-    connect(Append,SIGNAL(clicked(bool)), this,SLOT(addButton()));
-    connect(refresh,SIGNAL(clicked(bool)), this,SLOT(rerfresher()));
-    connect(recordsTabel, &QTableWidget::itemChanged, this, &Widget::tableEdited);
-    connect(searchName, &QLineEdit::textEdited, this, &Widget::updateFilter);
-    connect(searchNumber, &QLineEdit::textEdited, this, &Widget::updateFilter);
-    connect(searchCategory, &QLineEdit::textEdited, this, &Widget::updateFilter);
-    connect(searchDescription, &QLineEdit::textEdited, this, &Widget::updateFilter);
-
-    connect(ctrlTabShortcut, &QShortcut::activated, this, &Widget::switchTabs);
-    connect(ctrlShiftTabShortcut, &QShortcut::activated, this, &Widget::switchTabs2);
-    connect(undoShortcut, &QShortcut::activated, this, &Widget::undoAction);
-    connect(redoShortcut, &QShortcut::activated, this, &Widget::redoAction);
-
-
-    connect(clr, &QPushButton::clicked, this, &Widget::format);
-    connect(settings, &QPushButton::clicked, this, &Widget::showSettingDialog);
+    signalSlotsSetup();
 
     clr->setToolTip("Clear Search input fields");
     number->setValidator(new QDoubleValidator(0.5, 1000000, 1, this));
@@ -312,8 +208,6 @@ Widget::Widget(QWidget *parent)
     Theme = "dark";
     switchThemes(Theme);
     userfontSize = 10;
-    // In your constructor or after setup
-    QTimer::singleShot(1000, this, SLOT(showFullScreen()));
 
 }
 
@@ -427,7 +321,7 @@ void Widget::setActiveTab(QPushButton *activeBtn) {
     QString Them = "refresh";
     home->setStyleSheet("background-color:"+bg+";color:"+text+";border-color:"+btnBg);
     store->setStyleSheet("background-color:"+bg+";color:"+text+";border-color:"+btnBg);
-    STATS->setStyleSheet("background-color:"+bg+";color:"+text+";border-color:"+btnBg);
+    stats->setStyleSheet("background-color:"+bg+";color:"+text+";border-color:"+btnBg);
 
     activeBtn->setStyleSheet("background-color:"+hoverBg+";color:"+text+";border-color:"+hoverBg);
 }
@@ -438,7 +332,7 @@ void Widget::minimizeWindow(){ showMinimized(); }
 
 void Widget::homeTab()
 {
-    ZION->setText("Zion:home");
+    zion->setText("Zion:home");
     setActiveTab(home);
     CurrentTab = "Home";
     mainui->setCurrentIndex(0);
@@ -446,15 +340,15 @@ void Widget::homeTab()
 }
 void Widget::storeTab()
 {
-    ZION->setText("Zion:store");
+    zion->setText("Zion:store");
     setActiveTab(store);
     CurrentTab = "Store";
     mainui->setCurrentIndex(1);
 }
 void Widget::statsTab()
 {
-    ZION->setText("Zion:Stats");
-    setActiveTab(STATS);
+    zion->setText("Zion:Stats");
+    setActiveTab(stats);
     CurrentTab = "Stats";
     mainui->setCurrentIndex(2);
 }
@@ -467,8 +361,7 @@ void Widget::addButton()
     Category = categories->text().trimmed();
     Description = description->text().trimmed();
     Date = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
-
-
+    qInfo()<<"Saved Current status";
     if (Name.isEmpty() || Number.isEmpty() || Category.isEmpty()){
         QMessageBox::warning(this, "Warning", "Fill Empty Field(s)");
         return;
@@ -478,14 +371,12 @@ void Widget::addButton()
         info->setText("Name Too long (>20 chars)");
         return;
     }
-
     static QRegularExpression re("^[0-9.]+$");
     if (!re.match(Number).hasMatch() || Number == "0") {
         number->setPlaceholderText("Must be a digit/decimal > 0");
         info->setText("Number Must be a digit > 0");
         return;
     }
-
     if (names.contains(Name)) {
         QMessageBox::warning(this, "Warning", "Name Already Exists.");
         name->setPlaceholderText("Name already exists");
@@ -497,17 +388,61 @@ void Widget::addButton()
     Category.replace("\"","'");
     Description.replace("\"","'");
 
+    qInfo()<<"Formated:\n\tname:"<<Name<<"\n\tnumber:"<<Number;
+
     QDir().mkpath(fullPath);
     QFile file(filePath);
-    if(file.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
-        QTextStream out(&file);
-        out << "-new\nN:\"" << Name << "\"\nI:\"" << Number
-            << "\"\nC:\"" << Category << "\"\nD:\"" << Description << "\"\nT:\""<<Date<<"\"\n";
-        file.close();
-
-        status->setText(QString("Added: %1 (%2)").arg(Name, Category));
-        parser();
+    if (!file.open(QIODevice::ReadWrite | QIODevice::Text) ) {
+        return;
     }
+    qInfo()<<"Opened Path"<<filePath;
+    QTextStream stream(&file);
+    QString fullFile;
+    QString today;
+    QString todayHeader;
+    QString content ;
+    QString newContent;
+    QString todayContent;
+    today = QDate::currentDate().toString("yyyy-MM-dd");
+    todayHeader = "[" + today + "]{";
+    fullFile = stream.readAll();
+    if(fullFile.startsWith(todayHeader)){
+        int start  = fullFile.indexOf("{");
+        int end = fullFile.indexOf("}");\
+        newContent ="\n-new\nN:\"" + Name + "\"\nI:\"" + Number+ "\"\nC:\"" + Category + "\"\nD:\"" + Description + "\"\nT:\""+Date+"\"\n";
+        fullFile.insert(end-1,newContent);
+        file.seek(0);
+        file.resize(0);
+        stream.seek(0);
+        stream << fullFile;
+        status->setText(QString("Added: %1, (%2)").arg(Name, Category));
+    }
+    else if(fullFile.startsWith("[")&&fullFile.endsWith("{")){
+        int start = fullFile.indexOf("{");
+        int end = fullFile.indexOf("}");
+        content = fullFile.mid(start + 1, end - start - 1);
+        newContent = content +"\n-new\nN:\"" + Name + "\"\nI:\"" + Number+ "\"\nC:\"" + Category + "\"\nD:\"" + Description + "\"\nT:\""+Date+"\"";
+        todayContent = todayHeader+"\n"+newContent+"}";
+        fullFile.prepend(todayContent);
+        file.seek(0);
+        file.resize(0);
+        stream.seek(0);
+        stream << fullFile;
+    }
+    else if(!fullFile.startsWith("[")||fullFile.isEmpty()){
+        qInfo()<<"empty";
+        file.seek(0);
+        file.resize(0);
+        newContent = "-new\nN:\"" + Name + "\"\nI:\"" + Number+ "\"\nC:\"" + Category + "\"\nD:\"" + Description + "\"\nT:\""+Date+"\"\n";
+        todayContent = todayHeader+"\n"+newContent+"}";
+        file.seek(0);
+        file.resize(0);
+        stream.seek(0);
+        stream << todayContent;
+    }
+    stream.flush();
+    file.close();
+    parser();
     for (auto edts: {name,number,categories,description}){
         edts->setText("");
         edts->setPlaceholderText("");
@@ -515,98 +450,138 @@ void Widget::addButton()
     saveCurrentState();
 }
 
-// --- FIX 6: Logic to Add Delete Button in Parser ---
+// --- turns file to table
 void Widget::parser()
 {
+
     recordsTabel->setRowCount(0);
     names.clear();
     recent.clear();
 
-    //disconnect to prevent recursive calls during parsing
     disconnect(recordsTabel, &QTableWidget::itemChanged, this, &Widget::tableEdited);
     this->blockSignals(true);
 
     QFile file(filePath);
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        this->blockSignals(false);
-        // Reconnect immediately if file fails
         connect(recordsTabel, &QTableWidget::itemChanged, this, &Widget::tableEdited);
+        this->blockSignals(false);
         return;
     }
 
-    QTextStream in(&file);
+    QString todayHeader = "[" + QDate::currentDate().toString("yyyy-MM-dd") + "]{";
+    QString fullFile = file.readAll();
+    file.close();
+
+    // Fix: Instead of reading the stream again, we use the string we already have
+    QStringList lines = fullFile.split('\n');
     int currentRow = -1;
+    bool insideToday = false;
 
-    while (!in.atEnd()) {
-        QString line = in.readLine().trimmed();
+    for (QString line : lines) {
+        line = line.trimmed();
+        if (line.isEmpty()) continue;
 
-        if (line.startsWith("-new")) {
-            currentRow++;
-            recordsTabel->insertRow(currentRow);
-
-            // --- NEW: Add Delete Button for this row ---
-            QWidget *tabelwidgets = new QWidget(this);
-            QPushButton* deleteBtn = new QPushButton("DEl",tabelwidgets);
-            QPushButton* editButtn = new QPushButton("EDIT",tabelwidgets);
-
-
-            editButtn->setGeometry(50,0,50,30);
-
-            deleteBtn->setFixedSize(50, 30);
-            editButtn->setFixedSize(50,30);
-            editButtn->setToolTip("Edit this row");
-            deleteBtn->setToolTip("Delete this row");
-            editButtn->setCursor(Qt::PointingHandCursor);
-            deleteBtn->setCursor(Qt::PointingHandCursor);
-            editButtn->setObjectName("tabelbtn");
-            deleteBtn->setObjectName("tabelbtn");
-            deleteBtn->setProperty("row",currentRow);
-            editButtn->setProperty("row",currentRow);
-            QString stylesheetsd = R"(QPushButton#tabelbtn{font-size:10px;font-weight:bold;color:green;})";
-            QString editButtnsheet= "background-color:yellow;";
-            QString delSheet = "background-color:red;";
-            editButtn->setStyleSheet(stylesheetsd+editButtnsheet);deleteBtn->setStyleSheet(stylesheetsd+delSheet);
-            // Connect to our new delete logic
-            connect(editButtn,   &QPushButton::clicked ,this,&Widget::showEditDialog);
-            connect(deleteBtn, &QPushButton::clicked, this, &Widget::deleteRow);
-            // Add to column 4(action)
-            recordsTabel->setCellWidget(currentRow,5,tabelwidgets);
-            records newEntry;
-            recent.prepend(newEntry);
-            if (recent.size() > 2) {
-                recent.removeLast();
+        if (line.startsWith(todayHeader)) {
+            insideToday = true;
+            continue;
+        }else if(line.startsWith("[")&&line.endsWith("{")){
+            int start = fullFile.indexOf("{");
+            int end = fullFile.indexOf("}");
+            QString content = fullFile.mid(start + 1, end - start - 1);
+            fullFile.prepend(todayHeader+content+"}\n");
+            file.close();
+            QFile file(filePath);
+            if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+                connect(recordsTabel, &QTableWidget::itemChanged, this, &Widget::tableEdited);
+                this->blockSignals(false);
+                return;
             }
+            QTextStream out(&file);
+            out.seek(0);
+            file.seek(0);
+            file.resize(0);
+            out<<fullFile;
+            connect(recordsTabel, &QTableWidget::itemChanged, this, &Widget::tableEdited);
+            this->blockSignals(false);
+            file.close();
+            parser();
+            return;
         }
-        else if (currentRow >= 0 && !recent.isEmpty()) {
-            QString val = line.mid(2).remove('"');
-            if (line.startsWith("N:")) {
-                recordsTabel->setItem(currentRow, 0, new QTableWidgetItem(val));
-                names.append(val);
-                recent[0].Name = val;
+        // If we hit the end of the today block, STOP.
+        // This ensures ONLY today is shown.
+        if (line == "}") {
+            if (insideToday) break;
+            continue;
+        }
+
+        if (insideToday) {
+            if (line.startsWith("-new")) {
+                currentRow++;
+                recordsTabel->insertRow(currentRow);
+                // ... (Button Creation Logic Here) ...
+                QWidget *tabelwidgets = new QWidget(this);
+                QPushButton* deleteBtn = new QPushButton("DEl",tabelwidgets);
+                QPushButton* editButtn = new QPushButton("EDIT",tabelwidgets);
+                editButtn->setGeometry(50,0,50,30);
+                deleteBtn->setFixedSize(50, 30);
+                editButtn->setFixedSize(50,30);
+                editButtn->setToolTip("Edit this row");
+                deleteBtn->setToolTip("Delete this row");
+                editButtn->setCursor(Qt::PointingHandCursor);
+                deleteBtn->setCursor(Qt::PointingHandCursor);
+
+                editButtn->setObjectName("tabelbtn");
+                deleteBtn->setObjectName("tabelbtn");
+
+                deleteBtn->setProperty("row",currentRow);
+                editButtn->setProperty("row",currentRow);
+
+                QString stylesheetsd = R"(QPushButton#tabelbtn{font-size:10px;font-weight:bold;color:green;})";
+                QString editButtnsheet= "background-color:yellow;";
+                QString delSheet = "background-color:red;";
+
+                editButtn->setStyleSheet(stylesheetsd+editButtnsheet);deleteBtn->setStyleSheet(stylesheetsd+delSheet);
+                // Connect to our new delete logic
+                connect(editButtn,   &QPushButton::clicked ,this,&Widget::showEditDialog);
+                connect(deleteBtn, &QPushButton::clicked, this, &Widget::deleteRow);
+                // Add to column 4(action)
+                recordsTabel->setCellWidget(currentRow,5,tabelwidgets);
+                records newEntry;
+                recent.prepend(newEntry);
             }
-            else if (line.startsWith("I:")) {
-                recordsTabel->setItem(currentRow, 1, new QTableWidgetItem(val));
-                recent[0].Number = val;
-            }
-            else if (line.startsWith("C:")) {
-                recordsTabel->setItem(currentRow, 2, new QTableWidgetItem(val));
-                recent[0].Category = val;
-            }
-            else if (line.startsWith("D:")) {
-                recordsTabel->setItem(currentRow, 3, new QTableWidgetItem(val));
-                recent[0].Description = val;
-            }else if(line.startsWith("T:")){
-                QString timeVal = line.mid(2).trimmed(); // Get everything after T:
-                timeVal.remove('"'); // Clean up the quotes
-                recordsTabel->setItem(currentRow, 4,new QTableWidgetItem(timeVal));
-                recent[0].Date = timeVal;
+            else if (currentRow >= 0) {
+                QString val = line.mid(2).remove('"');
+                if (line.startsWith("N:")) {
+                    recordsTabel->setItem(currentRow, 0, new QTableWidgetItem(val));
+                    names.append(val);
+                    recent[0][0]= val;
+                }
+                else if (line.startsWith("I:")) {
+                    recordsTabel->setItem(currentRow, 1, new QTableWidgetItem(val));
+                    recent[0][1] = val;
+                }
+                else if (line.startsWith("C:")) {
+                    recordsTabel->setItem(currentRow, 2, new QTableWidgetItem(val));
+                    recent[0][2] = val;
+                }
+                else if (line.startsWith("D:")) {
+                    recordsTabel->setItem(currentRow, 3, new QTableWidgetItem(val));
+                    recent[0][3] = val;
+                }
+                else if (line.startsWith("T:")) {
+                    recordsTabel->setItem(currentRow, 4, new QTableWidgetItem(val));
+                    recent[0][4] = val;
+                }
             }
         }
     }
-    file.close();
 
+    // ... (Keep your formatting/Recent-list logic here) ...
     QString listStr = "Recents:\n";
     for (int i = 0; i < recent.size(); ++i) {
+        if(recent.size()>2){
+            recent.pop_back();
+        }
         listStr += QString("Name: %1 Number: %2 Category: %3 Description: %4 \n").arg(recent[i].Name,recent[i].Number ,recent[i].Category, recent[i].Description);
     }
     info->setText(listStr);
@@ -633,6 +608,7 @@ void Widget::parser()
     }
     this->blockSignals(false);
     connect(recordsTabel, &QTableWidget::itemChanged, this, &Widget::tableEdited);
+    saveCurrentState();
 }
 
 void Widget::rerfresher()
@@ -650,52 +626,18 @@ void Widget::rerfresher()
 
 void Widget::tableEdited(QTableWidgetItem *item)
 {
-    saveCurrentState();
+
     //to prevent an infinite call back loop my block signals
     blockSignals(true);
     // another 'itemChanged' signal while we are processing.
     recordsTabel->blockSignals(true);
-    //create the file
-    QFile file(filePath);
-
-    //check for file accesibility
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        blockSignals(false);
-        recordsTabel->blockSignals(false);
-        return ;
-    }
-    //start writing to file
-    QTextStream out(&file);
-    for (int row = 0; row < recordsTabel->rowCount(); row++) {
-        // Skip hidden rows (filtered out) if you want?
-        // Usually you want to save everything, but let's save what is in the table.
-        // We need to check if items exist to avoid crashes
-        if(recordsTabel->item(row, 0) == nullptr) continue;
-
-        //create a file with -new N: I: D:   C: logic
-        QString tname = recordsTabel->item(row, 0)->text() ;
-        QString tnumb = recordsTabel->item(row, 1)->text() ;
-        QString tcateg = recordsTabel->item(row, 2)->text() ;
-        QString tdesc =   recordsTabel->item(row, 3)->text() ;
-        QString timeStamp= recordsTabel->item(row,4)->text();
-
-        tname.replace("\"","'");tnumb.replace("\"","'");tcateg.replace("\"","'");tdesc.replace("\"","'");
-
-        out << "-new\n";
-        out << "N:\"" << tname<< "\"\n";
-        out << "I:\"" << tnumb<< "\"\n";
-        out << "C:\"" << tcateg<< "\"\n";
-        out << "D:\"" <<tdesc<< "\"\n";
-        out << "T:\"" <<timeStamp<< "\"\n";
-    }
-    file.close();
-
+    saveTable();
     // We don't necessarily need to re-parse the whole file after an edit,
     // but it keeps things consistent with your original logic.
     parser();
     blockSignals(false);
     recordsTabel->blockSignals(true);
-    saveCurrentState();
+
 }
 
 //search the table
@@ -791,6 +733,7 @@ void Widget::deleteRow() {
 
     int rowToRemove = btn->property("row").toInt();
     if (rowToRemove != -1) {
+        names.removeOne(recordsTabel->item(rowToRemove,0)->text());//update names list
         recordsTabel->removeRow(rowToRemove);
         tableEdited(nullptr); // Save changes to file
     }
@@ -1014,8 +957,7 @@ void Widget::showSettingDialog(){
     QWidget *functionTweeksWidget = new QWidget();
     QVBoxLayout *functionTweeks = new QVBoxLayout(functionTweeksWidget);
     QPushButton *addPassWord = new QPushButton("+Add Password",functionTweeksWidget);
-    QLabel *comments = new QLabel("Made By Awesome Effiong\n with the help of the qt6 group\n icons are from flaticon.com \n the hamburgerMenu from stats page is made by \nSee Icons",functionTweeksWidget);
-
+    QLabel *comments = new QLabel("Made By Awesome Effiong\n with the help of the qt6 group\n icons are from flaticon.com \n the hamburgerMenu from stats page is made by \nSee Icons the store icon freepik",functionTweeksWidget);
 
     // FIX 2: Add tabsStack with stretch factor 1 to fill ALL available space
     settingsMaster->addWidget(tabsStack, 1);
@@ -1112,7 +1054,7 @@ void Widget::showFontDialog()
         return;
     }
 
-}
+}//do this instead of using lambda
 void Widget::lambdaFunctions(QString &value) {
     if (value == "stopTimer") {
         delTimer->stop();
@@ -1143,52 +1085,171 @@ void Widget::saveCurrentState() {
     recordsTabel->blockSignals(false);
 }
 
-void Widget::saveTable()
-{
-    recordsTabel->blockSignals(true);
+void Widget::saveTable() {
+    saveCurrentState();
+    QString today = QDate::currentDate().toString("yyyy-MM-dd");
+    QString todayHeader = "[" + today + "]{";
 
+    // 1. Build today's data string
+    QString todayContent = todayHeader + "\n";
+    for(int i = 0; i < recordsTabel->rowCount(); ++i) {
+        todayContent += "-new\n";
+        todayContent += "N:\"" + (recordsTabel->item(i,0) ? recordsTabel->item(i,0)->text() : "") + "\"\n";
+        todayContent += "I:\"" + (recordsTabel->item(i,1) ? recordsTabel->item(i,1)->text() : "0") + "\"\n";
+        todayContent += "C:\"" + (recordsTabel->item(i,2) ? recordsTabel->item(i,2)->text() : "") + "\"\n";
+        todayContent += "D:\"" + (recordsTabel->item(i,3) ? recordsTabel->item(i,3)->text() : "") + "\"\n";
+        todayContent += "T:\"" + (recordsTabel->item(i,4) ? recordsTabel->item(i,4)->text() : "") + "\"\n";
+    }
+    todayContent += "}\n";
+
+    // 2. Load the whole file to find where to swap
     QFile file(filePath);
-
-    //check for file accesibility
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        blockSignals(false);
-        recordsTabel->blockSignals(false);
-        return ;
-    }
-    //start writing to file
-    QString rwTime;
-    QString rwDesc;
-    QString rwCate;
-    QString rwNumb;
-    QString rwName;
-    QTextStream out(&file);
-    for (int row = 0; row < recordsTabel->rowCount(); row++) {
-        // Skip hidden rows (filtered out) if you want?
-        // Usually you want to save everything, but let's save what is in the table.
-        // We need to check if items exist to avoid crashes
-        auto safeText = [&](int col){
-            QTableWidgetItem *it = recordsTabel->item(row, col);
-            return it ? it->text().replace("\"","'"):QString();
-        };
-        //create a file with -new N: I: D:  C: T: logic
-
-        rwName = safeText(0);
-        rwNumb = safeText(1);
-        rwCate = safeText(2);
-        rwDesc = safeText(3);
-        rwTime = safeText(4);
-
-        out << "-new\n";
-        out << "N:\"" << rwName<< "\"\n";
-        out << "I:\"" << rwNumb<< "\"\n";
-        out << "C:\"" << rwCate<< "\"\n";
-        out << "D:\"" <<rwDesc<< "\"\n";
-        out << "T:\"" <<rwTime<< "\"\n";
+    QString fullFile;
+    if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        fullFile = file.readAll();
+        file.close();
     }
 
-    file.close();
-    parser();
-    recordsTabel->blockSignals(false);
+    // 3. The Swap Logic
+    if (fullFile.contains(todayHeader)) {
+        // Find the start and end of the old today block
+        int start = fullFile.indexOf(todayHeader);
+        int end = fullFile.indexOf("}", start) + 1;
+        // Replace ONLY that section
+        fullFile.replace(start, end - start, todayContent);
+    } else {
+        // If today doesn't exist, put it at the top
+        fullFile.prepend(todayContent);
+    }
+
+    // 4. Write back
+    if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QTextStream out(&file);
+        file.seek(0);
+        file.resize(0);
+        out << fullFile;
+        file.close();
+    }
+    saveCurrentState();
+}
+void Widget::navigationPanelSetup()
+{    // NavigationPanel
+
+    NavPanel = new QFrame(this);
+    NavPanel->setObjectName("NavigationalWidget");
+    NavigationPanel = new QGridLayout(NavPanel);
+    tabs = new QHBoxLayout();
+    home = new QPushButton();
+    store = new QPushButton();
+    stats = new QPushButton();
+    zion = new QLabel();
+    zion->setObjectName("Zion");
+
+    butns = new QHBoxLayout();
+    minimize = new QPushButton();
+    maximize = new QPushButton();
+    exit = new QPushButton();
+
+    // --- FIX 1: Corrected Paths again ---
+    zion->setPixmap(QPixmap(":/images/Zions.png"));
+    home->setIcon(QIcon(":/images/home.png"));
+    store->setIcon(QIcon(":/images/store.png"));
+    stats->setIcon(QIcon(":/images/stats.png"));
+
+    store->setText("Store");
+    stats->setText("Stats");
+    zion->setText("Zion");
+    home->setText("Home");
+    minimize->setText("-");
+    maximize->setText("[]");
+    exit->setText("X");
+
+    store->setIconSize(QSize(32, 32));
+    home->setIconSize(QSize(27, 27));
+
+    // Styling
+    for(auto btns: {home,stats,store})btns->setObjectName("tabButtons");
+    for(auto navBtns : {minimize,maximize,exit})navBtns->setStyleSheet("width:20;height:20");
+
+    NavPanel->setMaximumHeight(50);
+    NavigationPanel->setAlignment(Qt::AlignTop);
+
+}
+
+void Widget::mainUISetup()
+{
+    // Main UI Stack
+    mainui = new QStackedWidget(this);
+    mainui->setObjectName("tabstack");
+    // Page 1: Home
+    homepage = new QWidget();
+    Main = new QVBoxLayout(homepage);
+    welcome = new QLabel();
+    status = new QLabel();
+    add = new QPushButton();
+
+    welcome->setText("Welcome to Zion records....");
+    welcome->setObjectName("welcome");
+    status->setText("You have not added any products yet. . ....");
+    add->setText("Add");
+    add->setStyleSheet(
+        "font-family:consolas;font-weight:45px; padding:25%;border:white;border-width:5px;border-radius:25%;");
+    add->setIcon(QIcon(":/images/add.png")); // Path fix
+    add->setIconSize(QSize(32, 32));
+    // Page 2: Store
+    storepage = new QWidget(this);
+    storeMenu = new QHBoxLayout(storepage);
+    storesSidebar = new QVBoxLayout(storepage); // Removed 'this' to prevent layout warnings
+    refresh = new QPushButton(this);
+    prompt = new QLabel(this);
+    namePrompt = new QLabel(this);
+    namePrompt->setObjectName("prompt");
+    name = new QLineEdit(this);
+    numberPrompt = new QLabel(this);
+    numberPrompt->setObjectName("prompt");
+    number = new QLineEdit(this);
+    categoriesPrompt = new QLabel(this);
+    categoriesPrompt->setObjectName("prompt");
+    categories = new QLineEdit(this);
+    descriptionPrompt = new QLabel(this);
+    descriptionPrompt->setObjectName("prompt");
+    description = new QLineEdit();
+    name->setMinimumWidth(200);
+    Append = new QPushButton();
+}
+
+void Widget::signalSlotsSetup()
+{
+    connect(exit,       &QPushButton::clicked, this,&Widget::exitWindow);
+    connect(maximize,   &QPushButton::clicked, this,&Widget::resizeWindow);
+    connect(minimize,   &QPushButton::clicked, this,&Widget::minimizeWindow);
+    connect(home,       &QPushButton::clicked, this,&Widget::homeTab);
+    connect(store,      &QPushButton::clicked, this,&Widget::storeTab);
+    connect(add,        &QPushButton::clicked, this,&Widget::storeTab);
+    connect(stats,      &QPushButton::clicked, this,&Widget::statsTab);
+    connect(Append,     &QPushButton::clicked, this,&Widget::addButton);
+    connect(refresh,    &QPushButton::clicked, this,&Widget::rerfresher);
+    connect(recordsTabel,    &QTableWidget::itemChanged, this,    &Widget::tableEdited);
+    connect(searchName,      &QLineEdit::textEdited,     this,    &Widget::updateFilter);
+    connect(searchNumber,    &QLineEdit::textEdited,     this,    &Widget::updateFilter);
+    connect(searchCategory,  &QLineEdit::textEdited,     this,    &Widget::updateFilter);
+    connect(searchDescription,&QLineEdit::textEdited,    this,    &Widget::updateFilter);
+
+    connect(ctrlTabShortcut,     &QShortcut::activated, this, &Widget::switchTabs);
+    connect(ctrlShiftTabShortcut,&QShortcut::activated, this, &Widget::switchTabs2);
+    connect(undoShortcut,        &QShortcut::activated, this, &Widget::undoAction);
+    connect(redoShortcut,        &QShortcut::activated, this, &Widget::redoAction);
+    connect(windowShortcut1,       &QShortcut::activated, this, &Widget::windowAction1);
+    connect(windowShortcut2,       &QShortcut::activated, this, &Widget::windowAction2);
+
+    connect(clr,          &QPushButton::clicked, this, &Widget::format);
+    connect(settings,     &QPushButton::clicked, this, &Widget::showSettingDialog);
+    connect(enterShortcut, &QShortcut::activated, this, &Widget::enterAction);
+    // Add these to signalSlotsSetup()
+    connect(name,        &QLineEdit::returnPressed, this, &Widget::addButton);
+    connect(number,      &QLineEdit::returnPressed, this, &Widget::addButton);
+    connect(categories,  &QLineEdit::returnPressed, this, &Widget::addButton);
+    connect(description, &QLineEdit::returnPressed, this, &Widget::addButton);
 }
 
 void Widget::redoAction()
@@ -1198,15 +1259,8 @@ void Widget::redoAction()
     //add to past so it can be reanimated(redone)
     past.append(next);
 
-    QFile file(filePath);
-    if(file.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
-        QTextStream out(&file);
-        for(const records &row:next.allRows){
-            out << "-new\nN:\"" << row.Name<< "\"\nI:\"" << row.Number
-                << "\"\nC:\"" << row.Category << "\"\nD:\"" << row.Description << "\"\nT:\""<<Date<<"\"\n";
-        }
-        file.close();
-    }
+    //ADD to table and save Table () instead of adding to file
+
     parser(); // Reload table from the "reverted" file
     qInfo()<<"REDO";
 }
@@ -1215,19 +1269,65 @@ void Widget::undoAction() {
     TableState previous = past.takeLast();
     //add to future so it can be reanimated(redone)
     future.append(previous);
-
+    QString content;
+    QString fullFile;
+    QString today = QDate::currentDate().toString("yyyy-MM-dd");
+    QString todayHeader = "[" + today + "]{\n";
     QFile file(filePath);
-    if(file.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
-        QTextStream out(&file);
+    if(file.open(QIODevice::ReadWrite | QIODevice::Text)) {
+        QTextStream stream(&file);
+        fullFile = stream.readAll();
         for(records &row:previous.allRows){
-            out << "-new\nN:\"" << row.Name<< "\"\nI:\"" << row.Number
-                << "\"\nC:\"" << row.Category << "\"\nD:\"" << row.Description << "\"\nT:\""<<Date<<"\"\n";
+            content += todayHeader+"-new\nN:\"" + row.Name+"\"\nI:\"" +row.Number+"\"\nC:\"" +row.Category + "\"\nD:\"" +row.Description +"\"\nT:\""+row.Date+"\"\n";
         }
+        content.prepend(todayHeader);
+        content .append( "}");
+        int start = fullFile.indexOf("{");
+        int end = fullFile.indexOf("}");
+        if (start != -1 && end != -1) {
+            fullFile.remove(0,end);
+            fullFile.prepend(content);
+        }
+        stream<<fullFile;
+        stream.flush();
         file.close();
     }
     parser(); // Reload table from the "reverted" file
     qInfo()<<"UNDO";
 }
+
+void Widget::enterAction() {
+    // Option A: Direct approach - Get the specific widget that has focus right now
+    QWidget* currentFocus = this->focusWidget();
+
+    // Check if the focused widget is actually inside the homepage
+    if (currentFocus && storepage->isAncestorOf(currentFocus)) {
+        setActiveTab(store);
+        addButton();
+        // currentFocus is the widget you're looking for
+    }
+}
+void Widget::windowAction1() {
+    qInfo()<<"snap left";
+    QRect screenGeom = this->screen()->availableGeometry();
+    this->showNormal();
+    this->setGeometry(screenGeom.x(), screenGeom.y(), screenGeom.width()/2, screenGeom.height());
+}
+
+void Widget::windowAction2() {
+    // SNAP RIGHT
+    qInfo()<<"snap RIGHT";
+    QRect screenGeom = this->screen()->availableGeometry();
+    int w = screenGeom.width() / 2;
+    int h = screenGeom.height();
+
+    // We start at the X-coordinate of the middle of the screen
+    int startX = screenGeom.x() + w;
+
+    this->showNormal();
+    this->setGeometry(startX, screenGeom.y(), w, h);
+}
+
 
 void Widget::mousePressEvent(QMouseEvent *event) {
     // Only allow dragging from the NavigationPanel (your top bar)
