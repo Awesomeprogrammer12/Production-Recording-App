@@ -1,6 +1,6 @@
 #ifndef WIDGET_H
 #define WIDGET_H
-
+#include "statisticspage.h"
 //widgets
 #include <QWidget>
 #include <QDockWidget>
@@ -19,12 +19,12 @@
 #include <QColorDialog>
 #include <QMessageBox> // Optional, if you want "Are you sure?" prompts later
 #include <QFontDialog>
+#include <QWindow>
 
 //Layouts
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <QVBoxLayout>
-#include <QWindow>
 
 // file handling
 #include <QDir>
@@ -48,6 +48,8 @@
 #include <QColor>
 #include <QTimer>
 #include <QDateTime>
+#include <QScreen>
+#include <QGuiApplication>
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -65,6 +67,16 @@ class Widget : public QWidget
         bool operator==(const records& other) const {
             return Name == other.Name && Number == other.Number &&
                    Category == other.Category && Description == other.Description && Date== other.Date;
+        }
+        QString& operator[](int index) {
+            switch(index) {
+            case 0: return Name;
+            case 1: return Number;
+            case 2: return Category;
+            case 3: return Description;
+            case 4: return Date;
+            default: throw std::out_of_range("Index out of bounds");
+            }
         }
     };
     struct TableState {
@@ -110,6 +122,9 @@ public:
     QShortcut* ctrlShiftTabShortcut;
     QShortcut *undoShortcut;
     QShortcut *redoShortcut;
+    QShortcut *enterShortcut;
+    QShortcut *windowShortcut1;
+    QShortcut *windowShortcut2;
 
     bool m_resizing = false;
     Qt::WindowFrameSection m_section = Qt::NoSection;
@@ -123,9 +138,9 @@ public:
     QHBoxLayout *tabs;
     QPushButton *home;
     QPushButton *store;
-    QPushButton *STATS;
+    QPushButton *stats;
 
-    QLabel *ZION;
+    QLabel *zion;
 
     QHBoxLayout *butns;
     QPushButton *minimize;
@@ -200,6 +215,10 @@ public:
     QString editStyle;
     QPushButton *saveBtn;
 
+    //mainUI elements
+    QWidget* homepage;
+    QWidget* storepage;
+
     void switchThemes(QString &appTheme);//cyberpunk, dark,switch and light
     QString CurrentTab;
     int col;
@@ -209,6 +228,9 @@ public:
     QTimer *delTimer;//when this timer is done the row of data will be deleted
     void saveCurrentState();
     void saveTable();
+    void navigationPanelSetup();
+    void mainUISetup();
+    void signalSlotsSetup();
 public slots:
     void exitWindow();
     void resizeWindow();
@@ -234,6 +256,9 @@ public slots:
     void lambdaFunctions(QString &value);
     void redoAction();
     void undoAction();
+    void enterAction();
+    void windowAction1();
+    void windowAction2();
 
 private:
     QPoint m_mousePosition;
